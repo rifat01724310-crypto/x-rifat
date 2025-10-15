@@ -2,6 +2,7 @@ const { Module } = require("../lib/plugins");
 const config = require("../config");
 const { getTheme } = require("../Themes/themes");
 const theme = getTheme();
+const { downloadContentFromMessage } = require("baileys");
 
 // ==================== EXTENDED OWNER MENU ====================
 
@@ -186,58 +187,91 @@ Module({
       return message.send("_Reply to a view once message_");
     }
 
-    const quotedType = message.quoted.type;
-
-    if (
-      quotedType !== "viewOnceMessage" &&
-      quotedType !== "viewOnceMessageV2"
-    ) {
-      return message.send("_Reply to a view once photo or video_");
-    }
-
     await message.react("⏳");
 
-    try {
-      const media = message.quoted.msg?.message;
-      const mediaType = Object.keys(media || {})[0];
+    let content = null;
+    let mediaType = null;
+    let isViewOnce = false;
 
-      if (!media || !mediaType) {
-        await message.react("❌");
-        return message.send("❌ _Could not extract view once media_");
-      }
-
-      const content = media[mediaType];
-      const buffer = await message.quoted.download();
-
-      if (mediaType.includes("image")) {
-        await message.send({
-          image: buffer,
-          caption: `*📸 View Once Image*\n\n_Successfully retrieved!_`,
-        });
-      } else if (mediaType.includes("video")) {
-        await message.send({
-          video: buffer,
-          caption: `*🎥 View Once Video*\n\n_Successfully retrieved!_`,
-        });
-      } else {
-        await message.react("❌");
-        return message.send("❌ _Unsupported view once media type_");
-      }
-
-      await message.react("✅");
-    } catch (error) {
-      console.error("VV inner error:", error);
-      await message.react("❌");
-      await message.send("❌ _Failed to retrieve view once media_");
+    // Format 1: Direct message with viewOnce flag
+    if (message.quoted.msg?.viewOnce === true) {
+      content = message.quoted.msg;
+      mediaType = message.quoted.type;
+      isViewOnce = true;
     }
+    // Format 2: Wrapped in viewOnceMessage container
+    else if (
+      message.raw?.message?.extendedTextMessage?.contextInfo?.quotedMessage
+    ) {
+      const quotedMsg =
+        message.raw.message.extendedTextMessage.contextInfo.quotedMessage;
+
+      const viewOnceWrapper =
+        quotedMsg.viewOnceMessageV2 || quotedMsg.viewOnceMessage;
+
+      if (viewOnceWrapper && viewOnceWrapper.message) {
+        const innerMessage = viewOnceWrapper.message;
+        mediaType = Object.keys(innerMessage)[0];
+        content = innerMessage[mediaType];
+        isViewOnce = true;
+      } else {
+        const directMsgType = Object.keys(quotedMsg)[0];
+        if (quotedMsg[directMsgType]?.viewOnce === true) {
+          content = quotedMsg[directMsgType];
+          mediaType = directMsgType;
+          isViewOnce = true;
+        }
+      }
+    }
+
+    if (!isViewOnce || !content) {
+      await message.react("❌");
+      return message.send("❌ _This is not a view once message_");
+    }
+
+    const stream = await downloadContentFromMessage(
+      content,
+      mediaType.replace("Message", "")
+    );
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    if (mediaType === "imageMessage") {
+      await message.send({
+        image: buffer,
+        caption:
+          content.caption ||
+          `*📸 View Once Image*\n\n_Successfully retrieved!_`,
+      });
+    } else if (mediaType === "videoMessage") {
+      await message.send({
+        video: buffer,
+        caption:
+          content.caption ||
+          `*🎥 View Once Video*\n\n_Successfully retrieved!_`,
+        mimetype: content.mimetype || "video/mp4",
+      });
+    } else if (mediaType === "audioMessage") {
+      await message.send({
+        audio: buffer,
+        mimetype: content.mimetype || "audio/mpeg",
+        ptt: content.ptt || false,
+      });
+    } else {
+      await message.react("❌");
+      return message.send(`❌ _Unsupported media type: ${mediaType}_`);
+    }
+
+    await message.react("✅");
   } catch (error) {
-    console.error("VV command error:", error);
     await message.react("❌");
-    await message.send("❌ _Failed to process view once message_");
+    await message.send(`❌ _Failed: ${error.message}_`);
   }
 });
-
-// ==================== HIDDEN OWNER MENU (Advanced Commands) ====================
 
 Module({
   command: "getsession",
@@ -384,36 +418,6 @@ Module({
   }
 });
 
-Module({
-  command: "antiview",
-  package: "hidden",
-  description: "Auto-save all view once messages",
-})(async (message, match) => {
-  try {
-    if (!message.fromMe) return message.send(theme.isfromMe);
-
-    const action = match?.toLowerCase();
-
-    if (!action || !["on", "off", "status"].includes(action)) {
-      return message.send(
-        "*Anti-View Once*\n\n" +
-          "Automatically save all view once messages\n\n" +
-          "*Commands:*\n" +
-          ".antiview on - Enable\n" +
-          ".antiview off - Disable\n" +
-          ".antiview status - Check status"
-      );
-    }
-
-    // Note: Requires global state management
-    await message.send(
-      "_Anti-view feature requires global state implementation_"
-    );
-  } catch (error) {
-    console.error("Antiview command error:", error);
-    await message.send("❌ _Failed to toggle anti-view_");
-  }
-});
 
 Module({
   command: "clonedp",

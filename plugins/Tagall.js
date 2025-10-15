@@ -7,9 +7,6 @@ Module({
   description: "Tag all group members with custom style",
 })(async (m, text) => {
   await m.loadGroupInfo(m.from);
-  console.log(m);
-  console.log(m.isAdmin);
-  console.log(m.fromMe);
   if (!m.isGroup) return m.send(theme.isGroup);
   if (!m.isAdmin || !m.fromMe) return m.send(theme.isAdmin);
   try {
