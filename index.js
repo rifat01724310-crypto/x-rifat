@@ -15,7 +15,7 @@ const {
   delay,
   makeCacheableSignalKeyStore,
   DisconnectReason,
-} = require("baileys");
+} = require("baileys-mod");
 
 const {
   initSessions,
