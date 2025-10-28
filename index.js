@@ -24,12 +24,6 @@ const PORT = process.env.PORT || 8000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-const msgRetryCounterCache = new NodeCache();
-
-// ✅ FIX: Store temporary pairing sessions
-const pairingSessions = new Map(); // { number: socket }
-
 async function isBlocked(number) {
   try {
     const snapshot = await get(child(ref(db), `blocked/${number}`));
@@ -73,9 +67,6 @@ async function connector(Num, res) {
     printQRInTerminal: false,
   });
 
-  // ✅ Store pairing session
-  pairingSessions.set(Num, session);
-
   if (!session.authState.creds.registered) {
     await delay(1500);
     Num = Num.replace(/[^0-9]/g, "");
@@ -102,7 +93,6 @@ async function connector(Num, res) {
       if (session) {
         session.end(new Error("Pairing code generation failed"));
       }
-      pairingSessions.delete(Num);
       return;
     }
   }
@@ -131,7 +121,6 @@ async function connector(Num, res) {
             session.end(new Error("Already connected"));
           }
           DisconnectReason;
-          pairingSessions.delete(Num);
           release();
           return;
         }
@@ -143,7 +132,6 @@ async function connector(Num, res) {
         if (session) {
           session.end(new Error("Switching to main bot"));
         }
-        pairingSessions.delete(Num);
 
         await delay(3000);
 
@@ -179,13 +167,6 @@ function reconn(reason, Num, res, DisconnectReason) {
   ) {
     console.log(`🔄 Reconnecting pairing session for ${Num}...`);
 
-    // Clean up old session
-    const oldSession = pairingSessions.get(Num);
-    if (oldSession) {
-      oldSession.end(new Error("Reconnecting"));
-      pairingSessions.delete(Num);
-    }
-
     // Retry connection
     setTimeout(() => {
       connector(Num, res);
@@ -194,13 +175,6 @@ function reconn(reason, Num, res, DisconnectReason) {
     console.log(
       `⛔ Not reconnecting pairing session for ${Num} (reason: ${reason})`
     );
-
-    // Clean up
-    const oldSession = pairingSessions.get(Num);
-    if (oldSession) {
-      oldSession.end(new Error("Connection terminated"));
-      pairingSessions.delete(Num);
-    }
   }
 }
 /**
@@ -365,13 +339,6 @@ app.get("/block", async (req, res) => {
       manager.removeConnection(num);
       manager.removeConnecting(num);
 
-      // ✅ Clean up pairing session if exists
-      const pairingSession = pairingSessions.get(num);
-      if (pairingSession) {
-        pairingSession.end(new Error("Blocked"));
-        pairingSessions.delete(num);
-      }
-
       return res.send({
         status: "success",
         message: `${num} blocked & session deleted`,
@@ -514,7 +481,6 @@ app.get("/sessions", (req, res) => {
 
   res.json({
     total: manager.connections.size,
-    pairing: pairingSessions.size,
     sessions,
   });
 });
@@ -554,13 +520,6 @@ app.get("/delete", async (req, res) => {
     await fs.remove(sessionPath);
     manager.removeConnection(num);
     manager.removeConnecting(num);
-
-    // ✅ Clean up pairing session
-    const pairingSession = pairingSessions.get(num);
-    if (pairingSession) {
-      pairingSession.end(new Error("Deleted"));
-      pairingSessions.delete(num);
-    }
 
     res.send({
       status: "success",
