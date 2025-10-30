@@ -5,7 +5,6 @@ Module({
     package: 'mics',
     description: 'Shows how long the bot has been running'
 })(async (message) => {
-    if (!message.isfromMe) return;
     const tts = process.uptime();
     const days = Math.floor(tts / 86400);
     const hours = Math.floor((tts % 86400) / 3600);

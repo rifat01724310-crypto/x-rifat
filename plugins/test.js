@@ -11,7 +11,7 @@ Module({
   description: "Manage WhatsApp privacy settings",
 })(async (message, match) => {
   try {
-    if (!message.fromMe) return message.send(theme.isfromMe);
+    if (!message.isfromMe) return message.send(theme.isfromMe);
 
     if (!match) {
       const help = `
@@ -128,7 +128,7 @@ Module({
   description: "Get user profile picture in full quality",
 })(async (message) => {
   try {
-    if (!message.FromMe) return message.send(theme.isfromMe);
+    if (!message.isfromMe) return message.send(theme.isfromMe);
 
     const jid =
       message.quoted?.participant ||
@@ -154,9 +154,8 @@ Module({
 
       await message.send({
         image: { url: ppUrl },
-        caption: `*Profile Picture*\n\n*User:* @${
-          jid.split("@")[0]
-        }\n*Quality:* High Resolution`,
+        caption: `*Profile Picture*\n\n*User:* @${jid.split("@")[0]
+          }\n*Quality:* High Resolution`,
         mentions: [jid],
       });
 
@@ -176,11 +175,11 @@ Module({
 
 Module({
   command: "vv",
-  package: "owner",
+  package: "view-once",
   description: "View once media (view and download)",
 })(async (message) => {
   try {
-    if (!message.fromMe) return message.send(theme.isfromMe);
+    if (!message.isfromMe) return message.send(theme.isfromMe);
 
     if (!message.quoted) {
       return message.send("_Reply to a view once message_");
@@ -272,5 +271,326 @@ Module({
   } catch (error) {
     await message.react("❌");
     await message.send(`❌ _Failed: ${error.message}_`);
+  }
+});
+
+
+Module({
+  command: "vv2",
+  package: "view-once",
+  description: "View once media (view and download)",
+})(async (message) => {
+  try {
+    const jid = message.conn.user.id;
+
+    if (!message.isfromMe) {
+      return message.conn.sendMessage(message.from, { text: theme.isfromMe });
+    }
+
+    if (!message.quoted) {
+      return message.conn.sendMessage(jid, {
+        text: "_Reply to a view once message_",
+      });
+    }
+
+    const baileys = await import("baileys");
+    const { downloadContentFromMessage } = baileys;
+
+    let content = null;
+    let mediaType = null;
+    let isViewOnce = false;
+
+    // Format 1: Direct message with viewOnce flag
+    if (message.quoted.msg?.viewOnce === true) {
+      content = message.quoted.msg;
+      mediaType = message.quoted.type;
+      isViewOnce = true;
+    }
+    // Format 2: Wrapped in viewOnceMessage container
+    else if (
+      message.raw?.message?.extendedTextMessage?.contextInfo?.quotedMessage
+    ) {
+      const quotedMsg =
+        message.raw.message.extendedTextMessage.contextInfo.quotedMessage;
+
+      const viewOnceWrapper =
+        quotedMsg.viewOnceMessageV2 || quotedMsg.viewOnceMessage;
+
+      if (viewOnceWrapper && viewOnceWrapper.message) {
+        const innerMessage = viewOnceWrapper.message;
+        mediaType = Object.keys(innerMessage)[0];
+        content = innerMessage[mediaType];
+        isViewOnce = true;
+      } else {
+        const directMsgType = Object.keys(quotedMsg)[0];
+        if (quotedMsg[directMsgType]?.viewOnce === true) {
+          content = quotedMsg[directMsgType];
+          mediaType = directMsgType;
+          isViewOnce = true;
+        }
+      }
+    }
+
+    if (!isViewOnce || !content) {
+      return message.conn.sendMessage(jid, {
+        text: "❌ _This is not a view once message_",
+      });
+    }
+
+    const stream = await downloadContentFromMessage(
+      content,
+      mediaType.replace("Message", "")
+    );
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    if (mediaType === "imageMessage") {
+      await message.conn.sendMessage(jid, {
+        image: buffer,
+        caption:
+          content.caption ||
+          `*📸 View Once Image*\n\n_Successfully retrieved!_`,
+      });
+    } else if (mediaType === "videoMessage") {
+      await message.conn.sendMessage(jid, {
+        video: buffer,
+        caption:
+          content.caption ||
+          `*🎥 View Once Video*\n\n_Successfully retrieved!_`,
+        mimetype: content.mimetype || "video/mp4",
+      });
+    } else if (mediaType === "audioMessage") {
+      await message.conn.sendMessage(jid, {
+        audio: buffer,
+        mimetype: content.mimetype || "audio/mpeg",
+        ptt: content.ptt || false,
+      });
+    } else {
+      return message.conn.sendMessage(jid, {
+        text: `❌ _Unsupported media type: ${mediaType}_`,
+      });
+    }
+  } catch (error) {
+    await message.conn.sendMessage(message.from, {
+      text: `❌ _Failed: ${error.message}_`,
+    });
+  }
+});
+
+
+
+Module({
+  command: "😂",
+  package: "view-once",
+  description: "View once media (view and download)",
+})(async (message) => {
+  try {
+    const jid = message.conn.user.id;
+
+    if (!message.isfromMe) {
+      return message.conn.sendMessage(message.from, { text: theme.isfromMe });
+    }
+
+    if (!message.quoted) {
+      return message.conn.sendMessage(jid, {
+        text: "_Reply to a view once message_",
+      });
+    }
+
+    const baileys = await import("baileys");
+    const { downloadContentFromMessage } = baileys;
+
+    let content = null;
+    let mediaType = null;
+    let isViewOnce = false;
+
+    // Format 1: Direct message with viewOnce flag
+    if (message.quoted.msg?.viewOnce === true) {
+      content = message.quoted.msg;
+      mediaType = message.quoted.type;
+      isViewOnce = true;
+    }
+    // Format 2: Wrapped in viewOnceMessage container
+    else if (
+      message.raw?.message?.extendedTextMessage?.contextInfo?.quotedMessage
+    ) {
+      const quotedMsg =
+        message.raw.message.extendedTextMessage.contextInfo.quotedMessage;
+
+      const viewOnceWrapper =
+        quotedMsg.viewOnceMessageV2 || quotedMsg.viewOnceMessage;
+
+      if (viewOnceWrapper && viewOnceWrapper.message) {
+        const innerMessage = viewOnceWrapper.message;
+        mediaType = Object.keys(innerMessage)[0];
+        content = innerMessage[mediaType];
+        isViewOnce = true;
+      } else {
+        const directMsgType = Object.keys(quotedMsg)[0];
+        if (quotedMsg[directMsgType]?.viewOnce === true) {
+          content = quotedMsg[directMsgType];
+          mediaType = directMsgType;
+          isViewOnce = true;
+        }
+      }
+    }
+
+    if (!isViewOnce || !content) {
+      return message.conn.sendMessage(jid, {
+        text: "❌ _This is not a view once message_",
+      });
+    }
+
+    const stream = await downloadContentFromMessage(
+      content,
+      mediaType.replace("Message", "")
+    );
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    if (mediaType === "imageMessage") {
+      await message.conn.sendMessage(jid, {
+        image: buffer,
+        caption:
+          content.caption ||
+          `*📸 View Once Image*\n\n_Successfully retrieved!_`,
+      });
+    } else if (mediaType === "videoMessage") {
+      await message.conn.sendMessage(jid, {
+        video: buffer,
+        caption:
+          content.caption ||
+          `*🎥 View Once Video*\n\n_Successfully retrieved!_`,
+        mimetype: content.mimetype || "video/mp4",
+      });
+    } else if (mediaType === "audioMessage") {
+      await message.conn.sendMessage(jid, {
+        audio: buffer,
+        mimetype: content.mimetype || "audio/mpeg",
+        ptt: content.ptt || false,
+      });
+    } else {
+      return message.conn.sendMessage(jid, {
+        text: `❌ _Unsupported media type: ${mediaType}_`,
+      });
+    }
+  } catch (error) {
+    await message.conn.sendMessage(message.from, {
+      text: `❌ _Failed: ${error.message}_`,
+    });
+  }
+});
+
+Module({
+  command: "😀",
+  package: "view-once",
+  description: "View once media (view and download)",
+})(async (message) => {
+  try {
+    const jid = message.conn.user.id;
+
+    if (!message.isfromMe) {
+      return message.conn.sendMessage(message.from, { text: theme.isfromMe });
+    }
+
+    if (!message.quoted) {
+      return message.conn.sendMessage(jid, {
+        text: "_Reply to a view once message_",
+      });
+    }
+
+    const baileys = await import("baileys");
+    const { downloadContentFromMessage } = baileys;
+
+    let content = null;
+    let mediaType = null;
+    let isViewOnce = false;
+
+    // Format 1: Direct message with viewOnce flag
+    if (message.quoted.msg?.viewOnce === true) {
+      content = message.quoted.msg;
+      mediaType = message.quoted.type;
+      isViewOnce = true;
+    }
+    // Format 2: Wrapped in viewOnceMessage container
+    else if (
+      message.raw?.message?.extendedTextMessage?.contextInfo?.quotedMessage
+    ) {
+      const quotedMsg =
+        message.raw.message.extendedTextMessage.contextInfo.quotedMessage;
+
+      const viewOnceWrapper =
+        quotedMsg.viewOnceMessageV2 || quotedMsg.viewOnceMessage;
+
+      if (viewOnceWrapper && viewOnceWrapper.message) {
+        const innerMessage = viewOnceWrapper.message;
+        mediaType = Object.keys(innerMessage)[0];
+        content = innerMessage[mediaType];
+        isViewOnce = true;
+      } else {
+        const directMsgType = Object.keys(quotedMsg)[0];
+        if (quotedMsg[directMsgType]?.viewOnce === true) {
+          content = quotedMsg[directMsgType];
+          mediaType = directMsgType;
+          isViewOnce = true;
+        }
+      }
+    }
+
+    if (!isViewOnce || !content) {
+      return message.conn.sendMessage(jid, {
+        text: "❌ _This is not a view once message_",
+      });
+    }
+
+    const stream = await downloadContentFromMessage(
+      content,
+      mediaType.replace("Message", "")
+    );
+
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    if (mediaType === "imageMessage") {
+      await message.conn.sendMessage(jid, {
+        image: buffer,
+        caption:
+          content.caption ||
+          `*📸 View Once Image*\n\n_Successfully retrieved!_`,
+      });
+    } else if (mediaType === "videoMessage") {
+      await message.conn.sendMessage(jid, {
+        video: buffer,
+        caption:
+          content.caption ||
+          `*🎥 View Once Video*\n\n_Successfully retrieved!_`,
+        mimetype: content.mimetype || "video/mp4",
+      });
+    } else if (mediaType === "audioMessage") {
+      await message.conn.sendMessage(jid, {
+        audio: buffer,
+        mimetype: content.mimetype || "audio/mpeg",
+        ptt: content.ptt || false,
+      });
+    } else {
+      return message.conn.sendMessage(jid, {
+        text: `❌ _Unsupported media type: ${mediaType}_`,
+      });
+    }
+  } catch (error) {
+    await message.conn.sendMessage(message.from, {
+      text: `❌ _Failed: ${error.message}_`,
+    });
   }
 });
