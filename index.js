@@ -17,6 +17,7 @@ app.get("/", (req, res) => {
 // Start server and initialize WhatsApp session (if configured)
 app.listen(PORT, async () => {
    try {
+    global.baileys = await import("baileys");
      console.log(`Server running on port ${PORT}`);
   console.log("Initializing databases...");
    await db.init();

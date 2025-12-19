@@ -43,15 +43,15 @@ async function fetchProfileBuffer(conn, jid) {
   }
 }
 
-async function sendWelcomeMsg(conn, groupJid, text, mentions = [], imgBuffer = null) {
+async function sendWelcomeMsg(conn, groupJid, text, mentions , imgBuffer = null) {
   try {
     if (imgBuffer) {
-      await conn.sendMessage(groupJid, { image: imgBuffer, caption: text }, { mentions });
+      await conn.sendMessage(groupJid, { image: imgBuffer, caption: text, mentions: [mentions] });
     } else {
-      await conn.sendMessage(groupJid, { text }, { mentions });
+      await conn.sendMessage(groupJid, { text , mentions: [mentions] });
     }
   } catch (err) {
-    // fallback without mentions if library errors
+    // fallback without mentions if library errors 
     try {
       await conn.sendMessage(groupJid, { text });
     } catch (e) {
@@ -156,9 +156,9 @@ Module({
   }
   const lower = raw.toLowerCase();
   if (lower === "on" || lower === "off") {
-    await settings.setGlobal("pdm", lower === "on");
+    await settings.setGlobal("pdm", lower === "on", { persist: true });
     await message.react?.("✅");
-    return await message.send(lower === "on" ? "✅ Global PDM enabled" : "❌ Global PDM disabled");
+    return await message.send(lower === "on" ? "*_Global PDM enabled_*" : "❌ Global PDM disabled");
   }
   await message.react?.("❌");
   return await message.send("Usage: .pdm on / .pdm off");
@@ -185,59 +185,46 @@ Module({
     }
     const groupName = md.subject || "";
     const groupSize = (md.participants && md.participants.length) || 0;
-
+    const jidNormalizedUser = global.baileys?.jidNormalizedUser || ((jid) => jid);
     for (const p of event.participants) {
-      const participantJid = (typeof p === "string") ? p : (p.id || p.jid);
+      const participantJid = jidNormalizedUser((typeof p === "string") ? p : (p.id || p.jid));
       if (!participantJid) continue;
-
-      // skip bot itself
       const botJid = conn.user?.id ? (conn.user.id.includes(":") ? conn.user.id.split(":")[0] + "" : conn.user.id) : null;
       if (botJid && participantJid && participantJid.includes(botJid.split(":")[0])) {
-        // skip bot
         continue;
       }
-
       // ADD -> welcome
       if (event.action === "add") {
         const cfgRaw = settings.getGroup(groupJid, "welcome");
         const cfg = (cfgRaw && typeof cfgRaw === "object") ? cfgRaw : defaultWelcome();
         if (!toBool(cfg.status)) continue;
-
         const mentionText = `@${participantJid.split("@")[0]}`;
         const replacements = { mentionText, name: groupName, size: groupSize };
-
         const { text, wantsPp } = buildText(cfg.message, replacements);
         let imgBuf = null;
         if (wantsPp) imgBuf = await fetchProfileBuffer(conn, participantJid);
-
-        await sendWelcomeMsg(conn, groupJid, text, [participantJid], imgBuf);
+        await sendWelcomeMsg(conn, groupJid, text, participantJid, imgBuf);
       }
-
       // REMOVE -> goodbye
       if (event.action === "remove") {
         const cfgRaw = settings.getGroup(groupJid, "goodbye");
         const cfg = (cfgRaw && typeof cfgRaw === "object") ? cfgRaw : defaultGoodbye();
         if (!toBool(cfg.status)) continue;
-
         const mentionText = `@${participantJid.split("@")[0]}`;
         const replacements = { mentionText, name: groupName, size: groupSize };
-
         const { text, wantsPp } = buildText(cfg.message, replacements);
         let imgBuf = null;
         if (wantsPp) imgBuf = await fetchProfileBuffer(conn, participantJid);
-
         await sendWelcomeMsg(conn, groupJid, text, [participantJid], imgBuf);
       }
-
       // PROMOTE / DEMOTE -> PDM (global)
       if (event.action === "promote" || event.action === "demote") {
         const pdmOn = settings.getGlobal("pdm") || false;
         if (!toBool(pdmOn)) continue;
-
         const botname =
           settings.getGlobal("BOT_NAME") ??
           config.BOT_NAME ??
-          "BOT";
+          "x-kira";
         // actor may not be present in all versions; try common fields
         const actor = event.actor || event.author || event.by || null;
         const actorText = actor ? `@${actor.split("@")[0]}` : "Admin";
