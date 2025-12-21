@@ -12,18 +12,21 @@ module.exports = {
     process.env.SESSION_ID ||
     "𓂃ᷱ᪳𝘅_𝗸𝗶𝗿𝗮_𝐁𓋜𝐓≈qbyeh282^☁️", // add your session id here
 
+  // ================= DATABASE ================= //
+  DATABASE_URL: process.env.DATABASE_URL || "",
+
   // ================= MENU ================= //
   MENU_INFO:
     process.env.MENU_INFO ||
-    "x-kira,https://i.postimg.cc/TY3P8vv2/𝙎𝙒𝙄𝙋𝙀-𝙋𝙄𝘾𝙎-GC-link-in-bio-𝘿𝙈-𝙋𝘼𝙄𝘿-𝙁𝙊𝙍-𝙋𝙍𝙊𝙈𝙊𝙏𝙄𝙊𝙉-𝙅𝙊-1.webp,image",
-  // name,link,type(image/video/gif)
+    "x-kira,*_made whit love by x-kira ❤️‍🩹_*,https://i.postimg.cc/TY3P8vv2/𝙎𝙒𝙄𝙋𝙀-𝙋𝙄𝘾𝙎-GC-link-in-bio-𝘿𝙈-𝙋𝘼𝙄𝘿-𝙁𝙊𝙍-𝙋𝙍𝙊𝙈𝙊𝙏𝙄𝙊𝙉-𝙅𝙊-1.webp,image",
+  // name,desc,link,type(image/video/gif)
 
   THEME: process.env.THEME || "t", // Garfield
 
   // ================= BOT MODE ================= //
   WORK_TYPE: process.env.WORK_TYPE || "public",
   prefix: process.env.PREFIX || ".",
-  BOT_NAME: process.env.BOT_NAME || "𓆩〭᪳〬Ꮓ͢Ꭺɼ֟፝ιន͜𝙷̐𝙰𓆪᪳",
+  BOT_NAME: process.env.BOT_NAME || "x-kira",
 
   // ================= FEATURES ================= //
   STATUS_REACT: isTrue(process.env.STATUS_REACT) || false,

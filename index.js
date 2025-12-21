@@ -20,7 +20,12 @@ app.listen(PORT, async () => {
     global.baileys = await import("baileys");
      console.log(`Server running on port ${PORT}`);
   console.log("Initializing databases...");
-   await db.init();
+  await db.init({
+      file: "./data/settings_db.json",
+      autosaveInterval: 5000,
+      databaseUrl: config.DATABASE_URL || null
+    });
+
   console.log('DB initialized. startup:', db.getStartupTime());
   const sessionId = config.SESSION_ID;
   if (!sessionId) {

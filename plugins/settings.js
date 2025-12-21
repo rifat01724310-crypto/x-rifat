@@ -36,11 +36,11 @@ Module({
 Module({
   command: "setmenu",
   package: "owner",
-  description: "Set menu info (.setmenu name,https://photo.jpg,image/video/gif"
+  description: "Set menu info (.setmenu name,desc,https://photo.jpg,image/video/gif"
 })(async (message, match) => {
   if (!message.isFromMe) return message.send(theme.isfromMe);
   const info = (match || "").trim();
-  if (!info) return message.send("Usage: .setmenuinfo x-kira,https://photo.jpg,image/video/gif");
+  if (!info) return message.send("Usage: .setmenuinfo x-kira,powered by x-kira,https://photo.jpg,image/video/gif");
   try {
     await settings.setGlobal("MENU_INFO", info, { persist: true });
     await message.react?.("✅");

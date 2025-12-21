@@ -34,6 +34,7 @@
     "he": "^1.2.0",
     "i-nrl": "^0.0.3",
     "jimp": "^1.6.0",
+    "megajs": "^1.3.9",
     "moment-timezone": "^0.5.46",
     "mongoose": "^8.13.3",
     "node-cache": "^5.1.2",

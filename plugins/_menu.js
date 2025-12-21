@@ -33,7 +33,7 @@ Module({ command: "menu", package: "general", description: "Show all commands or
       const workType = settings.getGlobal("WORK_TYPE") ?? config.WORK_TYPE ?? "public";
       const prefix = settings.getGlobal("prefix") ?? config.prefix ?? ".";
       const menuInfo = settings.getGlobal("MENU_INFO") ?? config.MENU_INFO ?? "bot,[https://i.postimg.cc/pVZd1X4L/DM-FOR-PAID-PROMOTION-B-o-y-P-F-P-𝐼𝐺-3.webp,photo](https://i.postimg.cc/pVZd1X4L/DM-FOR-PAID-PROMOTION-B-o-y-P-F-P-𝐼𝐺-3.webp,photo)";
-      const [name, media, type] = menuInfo.split(',').map(v => v.trim());
+      const [name, media, type, desc] = menuInfo.split(',').map(v => v.trim());
       const categories = Object.keys(grouped).sort();
       const flatCmds = [];
       for (const cat of categories) {
@@ -74,10 +74,7 @@ ${readMore}
           }
           _cmd_st += ` *┕──────────────────❒*\n`;
         }
-        _cmd_st += `\n═════ ✥.❖.✥ ═════
-ᴛʜᴇ ʜᴇᴀʀᴛ ʜᴀᴄᴋᴇʀ ɢɪʀʟ
-ㅤ𐏓꯭꯭❀𝄄𝄀꯭𝄄꯭ 𝐙͟𝐚͟𝐫͟𝐢͟𝐬͟𝐡͟𝐚͟❀͟𝄄𝄀꯭𝄄꯭⸙⟶
-═════ ✥.❖.✥ ═════`;
+        _cmd_st += `\n${desc}`;
       }
       _cmd_st += INVISIBLE_MARK;
 

@@ -5,9 +5,13 @@ const warnlib = require("./bin/warnlib"); // must implement addWarn/removeWarn/s
 const { getTheme } = require("../Themes/themes");
 const theme = getTheme();
 
-// fast detection patterns (compiled once)
-const URL_REGEX = /((?:https?:\/\/|www\.)[^\s]+)/gi;
-const DOMAIN_REGEX = /\b([A-Za-z0-9\-]+\.[A-Za-z]{2,}(?:\/[^\s]*)?)\b/gi;
+// Toggle detailed debug output by setting env var ANTILINK_DEBUG=1
+const DEBUG = !!process.env.ANTILINK_DEBUG;
+
+// improved detection patterns (compiled once)
+const URL_REGEX = /((?:https?:\/\/|ftp:\/\/|www\.)[^\s<>]+)/gi;
+// domain-only fallback (avoid matching pure numbers and emails)
+const DOMAIN_REGEX = /\b(?!\d+\b)([A-Za-z0-9-]+\.[A-Za-z]{2,}(?:\/[^\s<>]*)?)\b/gi;
 
 function defaultConfig() {
   return { status: true, action: "kick", not_del: [] };
@@ -36,74 +40,121 @@ function isIgnored(link, notDelList = []) {
   }
   return false;
 }
+
+// ---------- Extraction & detection improvements ----------
+
+// safe text extraction from common message wrapper shapes
+function extractText(message) {
+  if (!message) return "";
+  // 1) common direct properties
+  if (typeof message.body === "string" && message.body.trim()) return message.body.trim();
+  if (typeof message.content === "string" && message.content.trim()) return message.content.trim();
+  if (typeof message.text === "string" && message.text.trim()) return message.text.trim();
+  if (typeof message.caption === "string" && message.caption.trim()) return message.caption.trim();
+
+  // 2) some libs put the payload in message.message (e.g. WhatsApp Web shapes)
+  try {
+    const mroot = message.message || message.msg || message.raw?.message || {};
+    // conversation (simple text)
+    if (typeof mroot.conversation === "string" && mroot.conversation.trim()) return mroot.conversation.trim();
+    // extended text
+    if (mroot.extendedTextMessage && typeof mroot.extendedTextMessage.text === "string" && mroot.extendedTextMessage.text.trim()) {
+      return mroot.extendedTextMessage.text.trim();
+    }
+    // captions on media
+    if (mroot.imageMessage && typeof mroot.imageMessage.caption === "string" && mroot.imageMessage.caption.trim()) return mroot.imageMessage.caption.trim();
+    if (mroot.videoMessage && typeof mroot.videoMessage.caption === "string" && mroot.videoMessage.caption.trim()) return mroot.videoMessage.caption.trim();
+    // text inside quoted or other containers
+    if (mroot.templateButtonReplyMessage && typeof mroot.templateButtonReplyMessage.selectedId === "string") {
+      return mroot.templateButtonReplyMessage.selectedId;
+    }
+    if (mroot.buttonsResponseMessage && typeof mroot.buttonsResponseMessage.selectedDisplayText === "string") {
+      return mroot.buttonsResponseMessage.selectedDisplayText;
+    }
+    // fallback: check nested keys for text-like content
+    for (const k of Object.keys(mroot)) {
+      try {
+        const ct = mroot[k];
+        if (!ct) continue;
+        if (typeof ct === "string" && ct.trim()) return ct.trim();
+        if (ct && typeof ct.text === "string" && ct.text.trim()) return ct.text.trim();
+        if (ct && typeof ct.caption === "string" && ct.caption.trim()) return ct.caption.trim();
+        if (ct && typeof ct.conversation === "string'") return ct.conversation;
+      } catch (e) { /* ignore inner errors */ }
+    }
+  } catch (e) {
+    // ignore extraction errors
+    if (DEBUG) console.warn("[antilink] extractText error:", e && e.message ? e.message : e);
+  }
+  return "";
+}
+
+// normalize candidate: trim surrounding punctuation and angle-brackets
+function normalizeCandidate(s) {
+  if (!s || typeof s !== "string") return s;
+  // remove surrounding < > or quotes and trim punctuation on ends
+  s = s.trim().replace(/^[<\["'`(]+/, "").replace(/[>\]"'`)\.,:;!?]+$/g, "");
+  return s;
+}
+
+// improved detection function
 function detectLinks(text) {
-  if (!text) return [];
+  if (!text || typeof text !== "string") return [];
   const found = new Set();
   let m;
+
+  // 1) explicit URL matches (http/https/www/ftp)
   while ((m = URL_REGEX.exec(text))) {
-    if (m[1]) found.add(m[1]);
+    if (!m[1]) continue;
+    const clean = normalizeCandidate(m[1]);
+    if (clean && !clean.includes("@")) found.add(clean);
   }
-  // domain-like fallback
+
+  // 2) domain-like fallback (avoid emails)
   while ((m = DOMAIN_REGEX.exec(text))) {
     const candidate = m[1];
     if (!candidate) continue;
     if (candidate.includes("@")) continue; // skip emails
-    // avoid duplicates
+    const clean = normalizeCandidate(candidate);
+    if (!clean) continue;
+    // avoid adding duplicates/substrings
     let dup = false;
-    for (const s of found) if (s.includes(candidate) || candidate.includes(s)) { dup = true; break; }
-    if (!dup) found.add(candidate);
+    for (const s of found) {
+      if (s === clean) { dup = true; break; }
+      if (s.includes(clean) || clean.includes(s)) { dup = true; break; }
+    }
+    if (!dup) found.add(clean);
   }
+
   return Array.from(found);
 }
 
-// Extract text safely from message wrapper (if plugin receives raw different shapes)
-function extractText(message) {
-  if (!message) return "";
-  if (typeof message.body === "string" && message.body.trim()) return message.body;
-  if (message.content && typeof message.content === "string" && message.content.trim()) return message.content;
-  // some wrappers use 'text' or 'caption'
-  if (message.text && typeof message.text === "string") return message.text;
-  if (message.caption && typeof message.caption === "string") return message.caption;
-  // fallback to msg.raw if available
-  try {
-    const raw = message.raw || {};
-    if (raw.message) {
-      const m = raw.message;
-      const keys = Object.keys(m);
-      for (const k of keys) {
-        const ct = m[k];
-        if (!ct) continue;
-        if (typeof ct === "string") return ct;
-        if (ct.text) return ct.text;
-        if (ct.caption) return ct.caption;
-        if (ct.conversation) return ct.conversation;
-        if (ct.extendedTextMessage && ct.extendedTextMessage.text) return ct.extendedTextMessage.text;
-      }
-    }
-  } catch (e) { /* ignore */ }
-  return "";
-}
-
-// Core enforcement: delete first, then act
+// ----------------- Core enforcement: delete first, then act -----------------
 async function enforceMessage(message) {
   try {
     if (!message || !message.isGroup) return { acted: false, reason: "not_group" };
 
-    // quick short-circuit: if no dot / no www/http then probably no link
+    // extract text robustly
     const body = extractText(message) || "";
-    if (!body || (body.indexOf('.') === -1 && body.indexOf('http') === -1 && body.indexOf('www') === -1)) {
-      return { acted: false, reason: "no_link_chars" };
+    if (DEBUG) {
+      try {
+        console.log("[antilink] message body preview:", body.slice(0, 300));
+      } catch (e) { }
+    }
+
+    if (!body) {
+      return { acted: false, reason: "no_text" };
     }
 
     const links = detectLinks(body);
-    if (!links.length) return { acted: false, reason: "no_detected_links" };
+    if (!links || !links.length) return { acted: false, reason: "no_detected_links" };
 
     // load cfg
     let cfg = await settings.getGroup(message.from, "link");
     cfg = normalizeCfg(cfg);
     if (!toBool(cfg.status)) return { acted: false, reason: "disabled_in_settings" };
 
-    // ensure group info available for admin checks
+    // ensure group info available for admin checks (best-effort)
     if (typeof message.isAdmin === "undefined" || typeof message.isBotAdmin === "undefined") {
       try { await message.loadGroupInfo(); } catch (e) { /* ignore */ }
     }
@@ -120,15 +171,27 @@ async function enforceMessage(message) {
 
     const offender = message.sender;
     const client = message.client || message.conn;
-    console.log(`[antilink] detected link in ${message.from} by ${offender} -> ${offenderUrl} (action=${cfg.action})`);
+    if (DEBUG) console.log(`[antilink] detected link in ${message.from} by ${offender} -> ${offenderUrl} (action=${cfg.action})`);
 
     // 1) Try delete message for everyone if possible (best effort)
     try {
       // prefer message.send wrapper that your serialize exposes
       if (typeof message.send === "function") {
-        await message.send({ delete: message.key }).catch(() => { });
+        // some wrappers accept { delete: message.key } or message.delete(); we try several fallbacks
+        if (message.key) {
+          await message.send({ delete: message.key }).catch(() => { });
+        } else if (typeof message.delete === "function") {
+          await message.delete().catch(() => { });
+        } else {
+          // fallback: attempt client-level delete if possible
+          if (client && message.key && typeof client.sendMessage === "function") {
+            await client.sendMessage(message.from, { delete: message.key }).catch(() => { });
+          }
+        }
       } else if (client && message.key && typeof client.sendMessage === "function") {
         await client.sendMessage(message.from, { delete: message.key }).catch(() => { });
+      } else if (typeof message.delete === "function") {
+        await message.delete().catch(() => { });
       }
     } catch (e) {
       console.warn("[antilink] delete attempt error:", e && e.message ? e.message : e);
@@ -155,14 +218,12 @@ async function enforceMessage(message) {
         return null;
       });
       if (!res) return { acted: false, error: "warn_failed" };
-
       try {
         await message.sendreply(
           `⚠️ *Anti-Link Warning*\n\nUser: @${offender.split("@")[0]}\nWarn: ${res.count}/${res.limit}`,
           { mentions: [offender] }
         );
       } catch (e) { /* ignore */ }
-
       if (res.reached) {
         // kick & clear warns
         try {
@@ -191,10 +252,10 @@ async function enforceMessage(message) {
         if (client && typeof client.groupParticipantsUpdate === "function") {
           try {
             await message.sendreply(`❌ *Anti-Link Detected*\nUser removed: @${offender.split("@")[0]}`, { mentions: [offender] }).catch(() => { });
-          } catch (e) {}
+          } catch (e) { }
           await client.groupParticipantsUpdate(message.from, [offender], "remove");
         } else if (typeof message.removeParticipant === "function") {
-          try { await message.sendreply(`❌ *Anti-Link Detected*\nUser removed: @${offender.split("@")[0]}`, { mentions: [offender] }).catch(() => { }); } catch (e) {}
+          try { await message.sendreply(`❌ *Anti-Link Detected*\nUser removed: @${offender.split("@")[0]}`, { mentions: [offender] }).catch(() => { }); } catch (e) { }
           await message.removeParticipant(offender);
         } else {
           console.warn("[antilink] groupParticipantsUpdate / removeParticipant not available - cannot kick");
@@ -229,12 +290,10 @@ Module({
     }
     if (!message.isGroup) return message.send(theme.isGroup);
     if (!message.isAdmin && !message.isFromMe) return message.send(theme.isAdmin);
-
     const raw = (match || "").trim();
     const lower = raw.toLowerCase();
     let cfg = await settings.getGroup(message.from, "link");
     cfg = normalizeCfg(cfg);
-
     if (!raw) {
       return await message.sendreply(
         `*Antilink Settings*\n\n` +
@@ -341,17 +400,15 @@ Module({
     return await message.send("Invalid command. Type `antilink` to see help");
   } catch (e) {
     console.error("antilink command handler error:", e);
-    try { await message.send("An error occurred while processing the antilink command."); } catch {}
+    try { await message.send("An error occurred while processing the antilink command."); } catch { }
   }
 });
 
 // auto trigger on text messages
 Module({ on: "text" })(async (message) => {
   try {
-    const res = await enforceMessage(message);
-    if (res && res.acted) {
-      console.log("[antilink] action:", res.action, "details:", res);
-    }
+    await enforceMessage(message);
+
   } catch (e) {
     console.error("antilink auto error:", e);
   }
