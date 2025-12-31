@@ -9,7 +9,8 @@ Module({
   description: "Tag all group members with custom style (cached)",
 })(async (m, text) => {
   if (!m.isGroup) return m.send(theme.isGroup);
-  if (!m.isAdmin && !m.isFromMe) return m.send(theme.isAdmin);
+  await m.loadGroupInfo();
+  if (!m.isAdmin) return m.send(theme.isAdmin);
   try {
     const conn = m.conn;
     const from = m.from;
@@ -20,31 +21,71 @@ Module({
     const participants = groupMetadata.participants || [];
     const groupName = groupMetadata.subject || "Unknown Group";
     const totalMembers = participants.length;
-    if (!totalMembers)
-      return m.sendreply("❌ No members found in this group.");
+    if (!totalMembers) return m.sendreply("❌ No members found in this group.");
     const msgText = text?.trim() || "ATTENTION EVERYONE";
     const emojis = [
-      "⚡", "✨", "🎖️", "💎", "🔱", "💗", "❤‍🩹", "👻", "🌟", "🪄",
-      "🎋", "🪼", "🍿", "👀", "👑", "🦋", "🐋", "🌻", "🌸", "🔥",
-      "🍉", "🍧", "🍨", "🍦", "🧃", "🪀", "🎾", "🪇", "🎲", "🎡",
-      "🧸", "🎀", "🎈", "🩵", "♥️", "🚩", "🏳️‍🌈", "🏖️", "🔪",
-      "🎏", "🫐", "🍓", "💋", "🍄", "🎐", "🍇", "🐍", "🪻", "🪸", "💀"
+      "⚡",
+      "✨",
+      "🎖️",
+      "💎",
+      "🔱",
+      "💗",
+      "❤‍🩹",
+      "👻",
+      "🌟",
+      "🪄",
+      "🎋",
+      "🪼",
+      "🍿",
+      "👀",
+      "👑",
+      "🦋",
+      "🐋",
+      "🌻",
+      "🌸",
+      "🔥",
+      "🍉",
+      "🍧",
+      "🍨",
+      "🍦",
+      "🧃",
+      "🪀",
+      "🎾",
+      "🪇",
+      "🎲",
+      "🎡",
+      "🧸",
+      "🎀",
+      "🎈",
+      "🩵",
+      "♥️",
+      "🚩",
+      "🏳️‍🌈",
+      "🏖️",
+      "🔪",
+      "🎏",
+      "🫐",
+      "🍓",
+      "💋",
+      "🍄",
+      "🎐",
+      "🍇",
+      "🐍",
+      "🪻",
+      "🪸",
+      "💀",
     ];
     const getEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
-    let tagText = `
-*🪷 GROUP : ${groupName}*
-*🪷 MEMBERS : ${totalMembers}*
-*🪷 MESSAGE : ${msgText}*
+    let tagText = `*▢ GROUP : ${groupName}*\n*▢ MEMBERS : ${totalMembers}*\n*▢ MESSAGE : ${msgText}*\n\n╭┈─「 ɦเ αℓℓ ƒɾเεɳ∂ร 🥰 」┈❍\n`;
 
-   *╭┈─「 𝐇𝐞𝐥𝐥𝐨 𝐄𝐯𝐞𝐫𝐲𝐨𝐧𝐞 」┈❍*
-`;
     let i = 1;
     for (const p of participants) {
-      tagText += `${i}.│${getEmoji()} ᩧ𝆺ྀི𝅥  @${p.id.split("@")[0]}\n`;
+      tagText += `│${getEmoji()} ᩧ𝆺ྀི𝅥  @${p.id.split("@")[0]}\n`;
       i++;
     }
-   
-    const mentions = participants.map(p => p.id);
+    tagText += `╰────────────❍`;
+
+    const mentions = participants.map((p) => p.id);
     await conn.sendMessage(
       from,
       { text: tagText, mentions },
@@ -55,7 +96,6 @@ Module({
     m.sendreply("❌ Failed to tag members.");
   }
 });
-
 
 Module({
   command: "admin",
@@ -73,18 +113,62 @@ Module({
     const participants = groupMetadata.participants || [];
     const groupName = groupMetadata.subject || "Unknown Group";
     const admins = participants.filter(
-      p => p.admin === "admin" || p.admin === "superadmin"
+      (p) => p.admin === "admin" || p.admin === "superadmin"
     );
     if (!admins.length) {
       return m.sendReply("❌ No admins found in this group.");
     }
     const msgText = text?.trim() || "ATTENTION ADMINS";
     const emojis = [
-      "⚡", "✨", "🎖️", "💎", "🔱", "💗", "❤‍🩹", "👻", "🌟", "🪄",
-      "🎋", "🪼", "🍿", "👀", "👑", "🦋", "🐋", "🌻", "🌸", "🔥",
-      "🍉", "🍧", "🍨", "🍦", "🧃", "🎾", "🪇", "🎲", "🎡", "🧸",
-      "🎀", "🎈", "🩵", "♥️", "🚩", "🏳️‍🌈", "🏖️", "🔪", "🎏",
-      "🫐", "🍓", "💋", "🍄", "🎐", "🍇", "🐍", "🪻", "🪸", "💀"
+      "⚡",
+      "✨",
+      "🎖️",
+      "💎",
+      "🔱",
+      "💗",
+      "❤‍🩹",
+      "👻",
+      "🌟",
+      "🪄",
+      "🎋",
+      "🪼",
+      "🍿",
+      "👀",
+      "👑",
+      "🦋",
+      "🐋",
+      "🌻",
+      "🌸",
+      "🔥",
+      "🍉",
+      "🍧",
+      "🍨",
+      "🍦",
+      "🧃",
+      "🎾",
+      "🪇",
+      "🎲",
+      "🎡",
+      "🧸",
+      "🎀",
+      "🎈",
+      "🩵",
+      "♥️",
+      "🚩",
+      "🏳️‍🌈",
+      "🏖️",
+      "🔪",
+      "🎏",
+      "🫐",
+      "🍓",
+      "💋",
+      "🍄",
+      "🎐",
+      "🍇",
+      "🐍",
+      "🪻",
+      "🪸",
+      "💀",
     ];
     const getEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
     let tagText = `
@@ -92,16 +176,15 @@ Module({
 *🪷 ADMINS : ${admins.length}*
 *🪷 MESSAGE : ${msgText}*
 
-   *╭┈─「 αℓℓ α∂ɱเɳร 👑 」┈❍*
+*╭┈─「 αℓℓ α∂ɱเɳร 👑 」┈❍*
 `;
     let i = 1;
     for (const admin of admins) {
-      const role = admin.admin === "superadmin" ? "🌟" : "👮";
-      tagText += `${i}.│${getEmoji()} ${role} @${admin.id.split("@")[0]}\n`;
+      tagText += `│${getEmoji()} @${admin.id.split("@")[0]}\n`;
       i++;
     }
-    tagText += `   *╰────────────❍*`;
-    const mentions = admins.map(a => a.id);
+    tagText += `*╰────────────❍*`;
+    const mentions = admins.map((a) => a.id);
     await conn.sendMessage(
       from,
       { text: tagText, mentions },
@@ -132,7 +215,7 @@ Module({
       return m.reply("❌ No members found.");
     }
     const message = text?.trim() || "📢 Everyone has been tagged!";
-    const mentions = participants.map(p => p.id);
+    const mentions = participants.map((p) => p.id);
     await conn.sendMessage(
       from,
       { text: message, mentions },
