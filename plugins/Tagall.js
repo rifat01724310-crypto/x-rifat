@@ -21,7 +21,7 @@ Module({
     const groupName = groupMetadata.subject || "Unknown Group";
     const totalMembers = participants.length;
     if (!totalMembers) return m.sendreply("❌ No members found in this group.");
-    const msgText = text?.trim() || "ATTENTION EVERYONE";
+    const msgText = text?.trim() || "মেয়েদেরকে উম্মাহ💋";
     const emojis = [
       "⚡",
       "✨",
@@ -75,7 +75,7 @@ Module({
       "💀",
     ];
     const getEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
-    let tagText = `*▢ GROUP : ${groupName}*\n*▢ MEMBERS : ${totalMembers}*\n*▢ MESSAGE : ${msgText}*\n\n╭┈─「 ɦเ αℓℓ ƒɾเεɳ∂ร 🥰 」┈❍\n`;
+    let tagText = `*▢ GROUP : ${groupName}*\n*▢ MEMBERS : ${totalMembers}*\n*▢ MESSAGE : ${msgText}*\n\n╭┈─「𝙻σνє ωιтн 𝚁ιfαт🥰」┈❍\n`;
 
     let i = 1;
     for (const p of participants) {
